@@ -4,9 +4,9 @@
   "description": "Site institucional da Calisto A.I. - Tecnologia aplicada ao campo e serviços inteligentes",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --port 3010",
     "build": "next build",
-    "start": "next start",
+    "start": "next start --port 3010",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "format": "prettier --write .",
