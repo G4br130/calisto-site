@@ -21,7 +21,10 @@ export const services: Service[] = [
       'Validação e padronização de campos',
       'Classificação e organização documental',
       'Integração com sistemas existentes',
-      'Processamento em lote e auditoria'
+      'Processamento em lote e auditoria',
+      'Transcrição de manuscritos',
+      'Transcrição de áudio',
+      'Automatização de minuta e registro civil'
     ],
     benefits: [
       'Grande redução no tempo de processamento',
