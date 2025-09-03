@@ -16,16 +16,16 @@ import { Button } from '@/components/ui/button'
 
 const contactInfo = {
   address: {
-    street: 'Av. Bernardo Sayão, 1000',
+    street: 'aaaaaaaaaaa',
     neighborhood: 'Centro',
     city: 'Balsas',
     state: 'MA',
     zip: '65800-000',
     full: 'Balsas - MA, Brasil'
   },
-  phone: '+55 (99) 98853-8865',
+  phone: '+55 (99) 98551-6617',
   email: 'contato@calistoai.com.br',
-  whatsapp: '+559988538865',
+  whatsapp: '+5599985516617',
   telegram: '@calisto_ai',
   hours: {
     weekdays: 'Segunda a Sexta: 8:00 - 18:00',
@@ -60,7 +60,7 @@ export function ContactInfo() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Address */}
+            {/* Address 
             <div className="space-y-2">
               <h4 className="font-medium text-foreground">Endereço</h4>
               <div className="text-muted-foreground text-sm leading-relaxed">
@@ -69,7 +69,7 @@ export function ContactInfo() {
                 <p>{contactInfo.address.city} - {contactInfo.address.state}</p>
                 <p>CEP: {contactInfo.address.zip}</p>
               </div>
-            </div>
+            </div>*/}
 
             {/* Phone */}
             <div className="space-y-2">
@@ -201,7 +201,7 @@ export function ContactInfo() {
         </Card>
       </motion.div>
 
-      {/* Map */}
+      {/* Map 
       <motion.div
         initial={{ opacity: 0, x: -30 }}
         animate={{ opacity: 1, x: 0 }}
@@ -244,6 +244,7 @@ export function ContactInfo() {
           </CardContent>
         </Card>
       </motion.div>
+      */}
     </div>
   )
 }
