@@ -28,8 +28,8 @@ const navigation = {
 
 const contactInfo = {
   email: process.env.NEXT_PUBLIC_EMAIL || 'contato@calistoai.com.br',
-  phone: process.env.NEXT_PUBLIC_WHATSAPP || '+55 (99) 98853-8865',
-  whatsapp: process.env.NEXT_PUBLIC_WHATSAPP || '+559988538865',
+  phone: process.env.NEXT_PUBLIC_WHATSAPP || '+55 (99) 98551-6617',
+  whatsapp: process.env.NEXT_PUBLIC_WHATSAPP || '+5599985516617',
   telegram: process.env.NEXT_PUBLIC_TELEGRAM || '@calisto_ai',
   address: process.env.NEXT_PUBLIC_ADDRESS || 'Balsas - MA, Brasil',
 }
