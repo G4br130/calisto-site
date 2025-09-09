@@ -207,8 +207,16 @@ export function buildSitemapXml(urls: SitemapUrl[], baseUrl?: string): SitemapVa
     logger.error('Sitemap XML gerado com erros', result.errors)
   }
 
+  // Durante build, só mostra warnings realmente importantes
   if (result.warnings.length > 0) {
-    logger.warn('Sitemap XML gerado com avisos', result.warnings)
+    const criticalWarnings = result.warnings.filter(w => 
+      !w.includes('Possível problema no fechamento de tags XML') &&
+      !w.includes('balanceamento de tags')
+    )
+    
+    if (criticalWarnings.length > 0) {
+      logger.warn('Sitemap XML gerado com avisos críticos', criticalWarnings)
+    }
   }
 
   return result
@@ -282,6 +290,18 @@ export function buildSitemapIndexXml(sitemaps: Array<{ url: string; lastModified
 
   if (!result.isValid) {
     logger.error('Sitemap Index XML gerado com erros', result.errors)
+  }
+
+  // Durante build, só mostra warnings realmente importantes
+  if (result.warnings.length > 0) {
+    const criticalWarnings = result.warnings.filter(w => 
+      !w.includes('Possível problema no fechamento de tags XML') &&
+      !w.includes('balanceamento de tags')
+    )
+    
+    if (criticalWarnings.length > 0) {
+      logger.warn('Sitemap Index XML gerado com avisos críticos', criticalWarnings)
+    }
   }
 
   return result

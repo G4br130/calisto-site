@@ -275,12 +275,39 @@ export function validateSitemapXml(xmlContent: string): {
     errors.push('Tipo de sitemap não reconhecido (deve conter <urlset> ou <sitemapindex>)')
   }
   
-  // Verifica fechamento correto de tags
-  const openTags = xmlContent.match(/<[^\/!?][^>]*>/g) || []
-  const closeTags = xmlContent.match(/<\/[^>]*>/g) || []
-  
-  if (openTags.length !== closeTags.length + 1) { // +1 para a declaração XML
-    warnings.push('Possível problema no fechamento de tags XML')
+  // Verifica fechamento correto de tags XML de forma mais precisa
+  try {
+    // Conta tags específicas de sitemap que devem estar balanceadas
+    const urlsetOpen = (xmlContent.match(/<urlset[^>]*>/g) || []).length
+    const urlsetClose = (xmlContent.match(/<\/urlset>/g) || []).length
+    
+    const sitemapindexOpen = (xmlContent.match(/<sitemapindex[^>]*>/g) || []).length
+    const sitemapindexClose = (xmlContent.match(/<\/sitemapindex>/g) || []).length
+    
+    const urlOpen = (xmlContent.match(/<url>/g) || []).length
+    const urlClose = (xmlContent.match(/<\/url>/g) || []).length
+    
+    const sitemapOpen = (xmlContent.match(/<sitemap>/g) || []).length
+    const sitemapClose = (xmlContent.match(/<\/sitemap>/g) || []).length
+    
+    // Validações específicas
+    if (type === 'sitemap') {
+      if (urlsetOpen !== 1 || urlsetClose !== 1) {
+        errors.push('Tag <urlset> deve aparecer exatamente uma vez')
+      }
+      if (urlOpen !== urlClose) {
+        errors.push(`Tags <url> desbalanceadas: ${urlOpen} abertas, ${urlClose} fechadas`)
+      }
+    } else if (type === 'sitemapindex') {
+      if (sitemapindexOpen !== 1 || sitemapindexClose !== 1) {
+        errors.push('Tag <sitemapindex> deve aparecer exatamente uma vez')
+      }
+      if (sitemapOpen !== sitemapClose) {
+        errors.push(`Tags <sitemap> desbalanceadas: ${sitemapOpen} abertas, ${sitemapClose} fechadas`)
+      }
+    }
+  } catch (validationError) {
+    warnings.push('Não foi possível validar completamente o balanceamento de tags XML')
   }
   
   return {
@@ -338,14 +365,21 @@ export function validateW3CDate(dateString: string): boolean {
  */
 export function createSitemapLogger(context: string) {
   const isDev = process.env.NODE_ENV === 'development'
+  const isBuild = process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE === 'phase-production-build'
   
   return {
     info: (message: string, data?: any) => {
-      if (isDev) {
+      if (isDev && !isBuild) {
         console.log(`[Sitemap:${context}] ${message}`, data || '')
       }
     },
     warn: (message: string, data?: any) => {
+      // Durante build, só mostra warnings críticos
+      if (isBuild) {
+        if (message.includes('Tags') || message.includes('URL') || message.includes('XML')) {
+          return // Suprime avisos menores durante build
+        }
+      }
       console.warn(`[Sitemap:${context}] ⚠️ ${message}`, data || '')
     },
     error: (message: string, error?: any) => {
