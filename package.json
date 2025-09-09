@@ -13,7 +13,10 @@
     "format:check": "prettier --check .",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "sitemap:ping": "node scripts/ping-sitemaps.js",
+    "sitemap:test": "curl -s http://localhost:3010/sitemap.xml | head -20",
+    "sitemap:validate": "node scripts/validate-sitemap.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.2",

@@ -180,14 +180,14 @@ export default function PrivacyPage() {
                   <div className="grid sm:grid-cols-2 gap-4 mt-4">
                     <div className="flex items-center space-x-3">
                       <Mail className="w-4 h-4 text-brand" />
-                      <a href="mailto:privacidade@calisto.ai" className="text-brand hover:underline">
-                        privacidade@calisto.ai
+                      <a href="mailto:contato@calistoai.com.br" className="text-brand hover:underline">
+                        contato@calistoai.com.br
                       </a>
                     </div>
                     <div className="flex items-center space-x-3">
                       <Phone className="w-4 h-4 text-brand" />
-                      <a href="tel:+5599999999999" className="text-brand hover:underline">
-                        +55 (99) 99999-9999
+                      <a href="tel:+5599985516617" className="text-brand hover:underline">
+                        +55 (99) 98551-6617
                       </a>
                     </div>
                   </div>

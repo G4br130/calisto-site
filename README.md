@@ -15,6 +15,7 @@ Site institucional da Calisto A.I., empresa especializada em inteligência artif
 - **NodeMailer** - Envio de emails
 - **Vitest** - Framework de testes
 - **ESLint + Prettier** - Linting e formatação
+- **Sistema de Sitemaps Profissional** - SEO otimizado com suporte a paginação
 
 ## 🎨 Design System
 
@@ -258,6 +259,146 @@ O site está configurado como PWA com:
 1. Adicione o Google Analytics no `layout.tsx`
 2. Configure eventos personalizados
 3. Implemente tracking de conversões
+
+## 🗺️ Sistema de Sitemaps
+
+O projeto inclui um sistema completo de sitemaps profissionais com:
+
+- **Geração automática** de sitemaps XML
+- **Suporte a paginação** (até 50.000 URLs por arquivo)
+- **Robots.txt inteligente** com controle de ambiente
+- **Revalidação ISR** configurável
+- **Suporte a multilíngue** (hreflang)
+- **Metadados de imagem e vídeo**
+- **Scripts de validação e notificação**
+
+### 📋 Configuração Inicial
+
+1. **Configure as variáveis de ambiente**:
+   ```bash
+   # Copie o arquivo de exemplo
+   cp env.example .env.local
+   
+   # Configure pelo menos estas variáveis:
+   SITE_URL=https://www.seudominio.com
+   DISALLOW_INDEX=false  # true para ambientes de teste
+   ```
+
+2. **Variáveis importantes**:
+   - `SITE_URL`: URL principal do site (obrigatória)
+   - `DISALLOW_INDEX`: Controla indexação (true/false)
+   - `API_SECRET`: Para proteger APIs de dados dinâmicos
+   - `SITEMAP_REVALIDATE`: Tempo de revalidação em segundos (padrão: 3600)
+
+### 🔧 Conectando Fontes de Dados Reais
+
+Para conectar suas APIs e banco de dados, edite o arquivo `src/lib/sitemap/sources.ts`:
+
+```typescript
+// Exemplo para buscar posts de blog
+const blogPosts = await fetch(`${baseUrl}/api/blog/posts`).then(r => r.json())
+for (const post of blogPosts) {
+  dynamicRoutes.push({
+    url: `${baseUrl}/blog/${post.slug}`,
+    lastModified: new Date(post.updatedAt),
+    changeFrequency: 'monthly',
+    priority: 0.6,
+  })
+}
+
+// Exemplo para produtos
+const products = await fetch(`${baseUrl}/api/products`).then(r => r.json())
+for (const product of products) {
+  dynamicRoutes.push({
+    url: `${baseUrl}/produtos/${product.id}`,
+    lastModified: new Date(product.updatedAt),
+    changeFrequency: 'weekly',
+    priority: 0.7,
+    images: product.images?.map(img => ({
+      url: img.url,
+      title: product.name,
+      caption: img.alt
+    }))
+  })
+}
+```
+
+### 🚀 Scripts Disponíveis
+
+```bash
+# Testar sitemap localmente
+npm run sitemap:test
+
+# Validar formato e conteúdo
+npm run sitemap:validate
+
+# Notificar motores de busca (após deploy)
+npm run sitemap:ping
+```
+
+### 📍 URLs Geradas
+
+- **Sitemap principal**: `/sitemap.xml`
+- **Sitemaps paginados**: `/sitemaps/sitemap-1.xml`, `/sitemaps/sitemap-2.xml`, etc.
+- **Robots.txt**: `/robots.txt`
+
+### 🔍 Testando Localmente
+
+```bash
+# Inicie o servidor
+npm run dev
+
+# Teste o sitemap
+curl http://localhost:3010/sitemap.xml
+
+# Ou no navegador
+http://localhost:3010/sitemap.xml
+http://localhost:3010/robots.txt
+```
+
+### 🌍 Suporte a Multilíngue
+
+Para sites multilíngues, descomente e adapte o código em `sources.ts`:
+
+```typescript
+// Exemplo para português e inglês
+const languages = ['pt', 'en']
+staticRoutes.forEach(route => {
+  route.alternates = languages.map(lang => ({
+    hreflang: lang,
+    href: lang === 'pt' ? route.url : `${route.url}/${lang}`
+  }))
+})
+```
+
+### ⚡ Performance e Limites
+
+- **Máximo 50.000 URLs** por arquivo de sitemap
+- **Paginação automática** quando necessário
+- **Cache ISR** de 1 hora (configurável)
+- **Geração assíncrona** para melhor performance
+- **Fallback gracioso** em caso de erro
+
+### 🐛 Troubleshooting
+
+**Sitemap não aparece:**
+- Verifique se `SITE_URL` está configurada
+- Confirme que o servidor está rodando
+- Teste com `npm run sitemap:validate`
+
+**Muitas URLs:**
+- O sistema automaticamente pagina em múltiplos arquivos
+- Verifique `/sitemap.xml` para ver o índice
+
+**Dados dinâmicos não aparecem:**
+- Verifique as funções em `src/lib/sitemap/sources.ts`
+- Teste suas APIs de dados
+- Veja os logs no console durante desenvolvimento
+
+**Em produção (Vercel):**
+- Configure `SITE_URL` nas variáveis de ambiente
+- Use `npm run sitemap:ping` após deploy
+- Monitore os logs de função serverless
 
 ## 🚀 Deploy
 
