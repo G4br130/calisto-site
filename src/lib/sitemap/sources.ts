@@ -1,4 +1,5 @@
 import { services, additionalServices, type Service } from '@/content/services'
+import { normalizeUrl, validateAbsoluteUrl, createSitemapLogger } from './utils'
 
 export interface SitemapUrl {
   url: string
@@ -22,81 +23,112 @@ export interface SitemapUrl {
   }>
 }
 
+const logger = createSitemapLogger('sources')
+
 /**
  * Retorna a URL base do site baseada nas variáveis de ambiente
+ * Garante URLs absolutas conforme especificação Google
+ * Evita erros: "URL not allowed", "Path mismatch", "Invalid URL"
  */
 export function getBaseUrl(): string {
   // Prioriza SITE_URL, depois NEXT_PUBLIC_SITE_URL, depois VERCEL_URL
-  const siteUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL
+  let siteUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL
   
   if (siteUrl) {
-    return siteUrl.endsWith('/') ? siteUrl.slice(0, -1) : siteUrl
+    // Remove barra final
+    siteUrl = siteUrl.replace(/\/+$/, '')
+    
+    // Valida se é URL absoluta válida
+    if (!validateAbsoluteUrl(siteUrl)) {
+      logger.error('SITE_URL inválida configurada', { siteUrl })
+      throw new Error(`URL base inválida: ${siteUrl}`)
+    }
+    
+    return siteUrl
   }
 
   // Em produção na Vercel
   if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`
+    const vercelUrl = `https://${process.env.VERCEL_URL}`
+    
+    if (!validateAbsoluteUrl(vercelUrl)) {
+      logger.error('VERCEL_URL inválida', { vercelUrl })
+      throw new Error(`URL da Vercel inválida: ${vercelUrl}`)
+    }
+    
+    return vercelUrl
   }
 
-  // Fallback para desenvolvimento
-  return 'http://localhost:3010'
+  // Fallback para desenvolvimento (apenas se permitido)
+  const devUrl = 'http://localhost:3010'
+  
+  if (process.env.NODE_ENV === 'production') {
+    logger.error('URL base não configurada em produção')
+    throw new Error('SITE_URL deve ser configurada em produção')
+  }
+  
+  logger.warn('Usando URL de desenvolvimento', { devUrl })
+  return devUrl
 }
 
 /**
- * Coleta todas as rotas estáticas do site
+ * Coleta todas as rotas estáticas do site garantindo URLs absolutas
+ * Evita erros: "URL not allowed", "Path mismatch", "Invalid URL"
  */
 export async function getStaticRoutes(): Promise<SitemapUrl[]> {
   const baseUrl = getBaseUrl()
   const now = new Date()
 
-  const staticRoutes: SitemapUrl[] = [
-    {
-      url: baseUrl,
-      lastModified: now,
-      changeFrequency: 'daily',
-      priority: 1.0,
-    },
-    {
-      url: `${baseUrl}/servicos`,
-      lastModified: now,
-      changeFrequency: 'weekly',
-      priority: 0.9,
-    },
-    {
-      url: `${baseUrl}/sobre`,
-      lastModified: now,
-      changeFrequency: 'monthly',
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/contato`,
-      lastModified: now,
-      changeFrequency: 'monthly',
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/privacidade`,
-      lastModified: now,
-      changeFrequency: 'yearly',
-      priority: 0.3,
-    },
+  // Definição das rotas estáticas com paths relativos
+  const routePaths = [
+    { path: '/', changeFrequency: 'daily' as const, priority: 1.0 },
+    { path: '/servicos', changeFrequency: 'weekly' as const, priority: 0.9 },
+    { path: '/sobre', changeFrequency: 'monthly' as const, priority: 0.8 },
+    { path: '/contato', changeFrequency: 'monthly' as const, priority: 0.7 },
+    { path: '/privacidade', changeFrequency: 'yearly' as const, priority: 0.3 },
   ]
+
+  const staticRoutes: SitemapUrl[] = []
+
+  for (const route of routePaths) {
+    try {
+      // Normaliza URL garantindo formato absoluto e consistência de domínio
+      const normalizedUrl = normalizeUrl(baseUrl, route.path)
+      
+      staticRoutes.push({
+        url: normalizedUrl,
+        lastModified: now,
+        changeFrequency: route.changeFrequency,
+        priority: route.priority,
+      })
+      
+    } catch (error) {
+      logger.error('Erro ao normalizar rota estática', { path: route.path, error })
+      // Continua processamento sem interromper por uma URL problemática
+    }
+  }
 
   // Se houver i18n configurado, adicione as variantes de idioma aqui
   // Exemplo para português e inglês:
   // const languages = ['pt', 'en']
   // staticRoutes.forEach(route => {
-  //   route.alternates = languages.map(lang => ({
-  //     hreflang: lang,
-  //     href: lang === 'pt' ? route.url : `${route.url}/${lang}`
-  //   }))
+  //   const alternates = languages.map(lang => {
+  //     const href = lang === 'pt' ? route.url : normalizeUrl(baseUrl, `/${lang}${new URL(route.url).pathname}`)
+  //     return {
+  //       hreflang: lang,
+  //       href
+  //     }
+  //   })
+  //   route.alternates = alternates
   // })
 
+  logger.info(`Coletadas ${staticRoutes.length} rotas estáticas`)
   return staticRoutes
 }
 
 /**
- * Coleta rotas dinâmicas do site (serviços individuais, posts do blog, etc.)
+ * Coleta rotas dinâmicas do site garantindo URLs absolutas e válidas
+ * Evita erros: "URL not allowed", "Path mismatch", "Invalid URL", "URLs not followed"
  */
 export async function getDynamicRoutes(): Promise<SitemapUrl[]> {
   const baseUrl = getBaseUrl()
@@ -108,18 +140,25 @@ export async function getDynamicRoutes(): Promise<SitemapUrl[]> {
     const allServices = [...services, ...additionalServices]
     
     for (const service of allServices) {
-      dynamicRoutes.push({
-        url: `${baseUrl}/servicos/${service.id}`,
-        lastModified: now,
-        changeFrequency: 'monthly',
-        priority: 0.6,
-        // Exemplo de imagem para o serviço (se houver)
-        // images: [{
-        //   url: `${baseUrl}/images/services/${service.id}.jpg`,
-        //   title: service.title,
-        //   caption: service.subtitle
-        // }]
-      })
+      try {
+        // Normaliza URL do serviço garantindo consistência
+        const serviceUrl = normalizeUrl(baseUrl, `/servicos/${service.id}`)
+        
+        dynamicRoutes.push({
+          url: serviceUrl,
+          lastModified: now,
+          changeFrequency: 'monthly',
+          priority: 0.6,
+          // Exemplo de imagem para o serviço (se houver)
+          // images: [{
+          //   url: normalizeUrl(baseUrl, `/images/services/${service.id}.jpg`),
+          //   title: service.title,
+          //   caption: service.subtitle
+          // }]
+        })
+      } catch (error) {
+        logger.error('Erro ao processar serviço', { serviceId: service.id, error })
+      }
     }
 
     // ========================================
@@ -158,53 +197,146 @@ export async function getDynamicRoutes(): Promise<SitemapUrl[]> {
     //   })
     // }
 
-    // Exemplo para buscar de API externa:
+    // Exemplo para buscar de API externa com URLs absolutas:
     // try {
     //   const response = await fetch(`${baseUrl}/api/sitemap-data`, {
-    //     headers: { 'Authorization': `Bearer ${process.env.API_SECRET}` }
+    //     headers: { 'Authorization': `Bearer ${process.env.API_SECRET}` },
+    //     // Timeout para evitar travamento
+    //     signal: AbortSignal.timeout(10000)
     //   })
+    //   
     //   if (response.ok) {
     //     const apiData = await response.json()
-    //     dynamicRoutes.push(...apiData.urls)
+    //     
+    //     for (const item of apiData.urls) {
+    //       try {
+    //         // Sempre normalizar URLs vindas de APIs externas
+    //         const normalizedUrl = normalizeUrl(baseUrl, item.path)
+    //         
+    //         dynamicRoutes.push({
+    //           url: normalizedUrl,
+    //           lastModified: item.updatedAt ? new Date(item.updatedAt) : now,
+    //           changeFrequency: item.changeFreq || 'monthly',
+    //           priority: item.priority || 0.5,
+    //           // Normalizar URLs de imagens também
+    //           images: item.images?.map(img => ({
+    //             url: normalizeUrl(baseUrl, img.path),
+    //             title: img.title,
+    //             caption: img.caption
+    //           }))
+    //         })
+    //       } catch (urlError) {
+    //         logger.warn('URL da API ignorada por ser inválida', { item, error: urlError })
+    //       }
+    //     }
     //   }
     // } catch (error) {
-    //   console.warn('Erro ao buscar dados dinâmicos da API:', error)
+    //   logger.warn('Erro ao buscar dados dinâmicos da API', error)
+    //   // Não interrompe o processo por erro de API externa
     // }
 
   } catch (error) {
-    console.error('Erro ao gerar rotas dinâmicas:', error)
+    logger.error('Erro ao gerar rotas dinâmicas', error)
     // Em produção, não deixe o sitemap quebrar por erro em dados dinâmicos
     // Continue com as rotas que conseguiu coletar
   }
 
+  logger.info(`Coletadas ${dynamicRoutes.length} rotas dinâmicas`)
   return dynamicRoutes
 }
 
 /**
- * Função principal que coleta todas as URLs do sitemap
+ * Função principal que coleta todas as URLs do sitemap com validação completa
+ * Evita erros: "URL not allowed", "Path mismatch", "Invalid URL"
  */
 export async function getAllUrls(): Promise<SitemapUrl[]> {
+  const baseUrl = getBaseUrl()
+  
   try {
     const [staticUrls, dynamicUrls] = await Promise.all([
       getStaticRoutes(),
       getDynamicRoutes(),
     ])
 
-    const allUrls = [...staticUrls, ...dynamicUrls]
+    let allUrls = [...staticUrls, ...dynamicUrls]
 
-    // Log para desenvolvimento (removido em produção)
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[Sitemap] Geradas ${allUrls.length} URLs:`)
-      console.log('- Estáticas:', staticUrls.length)
-      console.log('- Dinâmicas:', dynamicUrls.length)
-      console.log('Exemplos:', allUrls.slice(0, 3).map(u => u.url))
+    // Remove URLs duplicadas (comparação por URL)
+    const urlSet = new Set<string>()
+    const uniqueUrls: SitemapUrl[] = []
+    
+    for (const url of allUrls) {
+      if (!urlSet.has(url.url)) {
+        urlSet.add(url.url)
+        uniqueUrls.push(url)
+      } else {
+        logger.warn('URL duplicada removida', { url: url.url })
+      }
     }
 
-    return allUrls
+    allUrls = uniqueUrls
+
+    // Validação final de todas as URLs
+    const validUrls: SitemapUrl[] = []
+    
+    for (const url of allUrls) {
+      // Valida se URL é absoluta
+      if (!validateAbsoluteUrl(url.url)) {
+        logger.error('URL inválida removida', { url: url.url })
+        continue
+      }
+
+      // Valida consistência de domínio
+      try {
+        const urlObj = new URL(url.url)
+        const baseUrlObj = new URL(baseUrl)
+        
+        if (
+          urlObj.protocol !== baseUrlObj.protocol ||
+          urlObj.hostname !== baseUrlObj.hostname ||
+          urlObj.port !== baseUrlObj.port
+        ) {
+          logger.error('URL com domínio inconsistente removida', { 
+            url: url.url, 
+            expected: baseUrl 
+          })
+          continue
+        }
+        
+        validUrls.push(url)
+        
+      } catch (error) {
+        logger.error('URL malformada removida', { url: url.url, error })
+      }
+    }
+
+    // Log detalhado para desenvolvimento
+    logger.info('URLs coletadas e validadas', {
+      total: validUrls.length,
+      static: staticUrls.length,
+      dynamic: dynamicUrls.length,
+      duplicatesRemoved: allUrls.length - validUrls.length,
+      examples: validUrls.slice(0, 3).map(u => u.url)
+    })
+
+    if (validUrls.length === 0) {
+      logger.error('Nenhuma URL válida coletada')
+      throw new Error('Nenhuma URL válida foi coletada para o sitemap')
+    }
+
+    return validUrls
+    
   } catch (error) {
-    console.error('Erro ao coletar URLs do sitemap:', error)
-    // Em caso de erro, retorna pelo menos as rotas estáticas
-    return await getStaticRoutes()
+    logger.error('Erro crítico ao coletar URLs', error)
+    
+    // Em caso de erro crítico, tenta pelo menos as rotas estáticas
+    try {
+      const fallbackUrls = await getStaticRoutes()
+      logger.warn('Usando apenas rotas estáticas como fallback', { count: fallbackUrls.length })
+      return fallbackUrls
+    } catch (fallbackError) {
+      logger.error('Falha total na coleta de URLs', fallbackError)
+      throw new Error('Não foi possível coletar nenhuma URL para o sitemap')
+    }
   }
 }
 
