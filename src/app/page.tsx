@@ -1,3 +1,4 @@
+'use client'
 import { Hero } from '@/components/site/hero'
 import { ServiceGrid } from '@/components/site/service-card'
 import { VideoCarousel } from '@/components/site/video-carousel'
